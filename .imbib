@@ -1,0 +1,6 @@
+watched = %(home)s/Downloads
+archive = %(home)s/Papers
+library = %(home)s/library.bib
+
+viewer = /usr/bin/evince
+editor = /usr/bin/emacs
