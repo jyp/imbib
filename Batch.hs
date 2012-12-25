@@ -2,7 +2,7 @@
 
 import Control.Applicative hiding ((<|>),many)
 import Control.Monad
-import qualified Data.ByteString.Lazy as BS
+import qualified Data.Text.Lazy as BS
 import Data.Char
 import Data.List
 import Data.Maybe

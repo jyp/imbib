@@ -4,7 +4,7 @@ module BibDB where
 import Control.Applicative hiding ((<|>),many)
 import Control.Monad
 import Control.Monad.Trans
-import qualified Data.ByteString 
+-- import qualified Data.ByteString 
 import Data.Char
 import Data.List
 import Data.List.Split

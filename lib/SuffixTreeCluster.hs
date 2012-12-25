@@ -53,8 +53,8 @@ module SuffixTreeCluster
 import Prelude hiding (elem, foldl, foldr)
 import qualified Data.Map as M
 import Control.Arrow (second)
-import qualified Data.ByteString as SB
-import qualified Data.ByteString.Lazy as LB
+import qualified Data.Text as SB
+import qualified Data.Text.Lazy as LB
 import qualified Data.List as L
 import Data.Maybe (listToMaybe, mapMaybe, catMaybes)
 import Data.Monoid hiding (Sum)
@@ -183,8 +183,8 @@ suffix _ xs = Just xs
 
 {-# SPECIALISE elem :: [Char] -> STree Char b -> Bool #-}
 {-# SPECIALISE elem :: [[Char]] -> STree [Char] b -> Bool #-}
-{-# SPECIALISE elem :: [SB.ByteString] -> STree SB.ByteString b -> Bool #-}
-{-# SPECIALISE elem :: [LB.ByteString] -> STree LB.ByteString b -> Bool #-}
+{-# SPECIALISE elem :: [SB.Text] -> STree SB.Text b -> Bool #-}
+{-# SPECIALISE elem :: [LB.Text] -> STree LB.Text b -> Bool #-}
 {-# SPECIALISE elem :: (Eq a) => [[a]] -> STree [a] b -> Bool #-}
 
 -- | /O(n)/.  Indicates whether the suffix tree contains the given
@@ -204,10 +204,10 @@ lkup xs (Node _ es) = mconcat $ map pfx es
                         -> Maybe (Edge Char b, Int) #-}
 {-# SPECIALISE findEdge :: [String] -> STree String b
                         -> Maybe (Edge String b, Int) #-}
-{-# SPECIALISE findEdge :: [SB.ByteString] -> STree SB.ByteString b
-                        -> Maybe (Edge SB.ByteString b, Int) #-}
-{-# SPECIALISE findEdge :: [ LB.ByteString] -> STree LB.ByteString b
-                        -> Maybe (Edge LB.ByteString b, Int) #-}
+{-# SPECIALISE findEdge :: [SB.Text] -> STree SB.Text b
+                        -> Maybe (Edge SB.Text b, Int) #-}
+{-# SPECIALISE findEdge :: [ LB.Text] -> STree LB.Text b
+                        -> Maybe (Edge LB.Text b, Int) #-}
 {-# SPECIALISE findEdge :: (Eq a) => [[a]] -> STree [a] b
                         -> Maybe (Edge [a] b, Int) #-}
 
