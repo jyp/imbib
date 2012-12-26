@@ -40,23 +40,38 @@ import Config
 -- GUI
 
 main = do
-  bib <- rightOrDie <$> loadBibliography
+  bib0 <- rightOrDie <$> loadBibliography
  
+  notify <- initINotify
   initGUI
 
   win <- windowNew
 
-  model <- listStoreNewDND bib 
+  model <- listStoreNewDND bib0 
              (Just (DragSourceIface draggable dataGet dataDelete)) 
              (Just (DragDestIface possible recieved))
   onDestroy win $ do
          saveStore model 
+         killINotify notify
          mainQuit
+  {-
+    As of Dec 2012, using hinotify provokes a segmentation fault
+  addWatch notify [Modify] bibfile $ \e -> do
+         putStrLn $ "Bibfile changed; reloading"
+         mBib <- loadBibliography
+         case mBib of
+           Left err -> putStr $ show err
+           Right bib -> do oldBib <- listStoreToList model
+                           when (bib /= oldBib) $ do
+                             listStoreClear model
+                             forM_ bib (listStoreAppend model)
+  -}
   
   let gioBibfile = fileFromURI ("file://" ++ bibfile)
       ex = fileQueryExists gioBibfile Nothing
   putStrLn $ "Bibfile exists? " ++ show ex
   monitor <- fileMonitor gioBibfile [] Nothing
+  
   Gtk.on monitor fileMonitorChanged $ \childFile otherFile evType -> do
          -- This may not work. See bug: http://hackage.haskell.org/trac/gtk2hs/ticket/1221
          -- (bug report copied at the end of this file)
