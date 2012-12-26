@@ -117,7 +117,7 @@ harvest bib = do
       papers = [Entry {kind = "download", 
                        seeAlso = [],
                        authors = [],
-                       files = [(fname,guessType fname BS.empty)],
+                       files = [(fname,guessTypeByName fname)],
                        otherFields = [("title",fname),("date","2010")]
                       } | fname <- newFiles, takeExtension fname `elem` [".pdf",".ps"]]
   saveBib $ papers ++ bib

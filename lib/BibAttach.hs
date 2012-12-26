@@ -3,8 +3,7 @@ module BibAttach where
 import Control.Applicative hiding ((<|>),many)
 import Control.Monad
 import Control.Monad.Trans
-import qualified Data.Text.Lazy.IO as BS
-import qualified Data.Text.Lazy as BS
+import qualified Data.ByteString.Lazy as BS
 import Data.Char
 import Data.List
 import Data.List.Split
@@ -34,16 +33,21 @@ saveFile name contents = do
   BS.writeFile name contents
   return name
 
+
 findAttachName entry ext = attachmentsRoot </> (sanitize $ findTitle entry ++ "-" ++ findYear entry ++ "." ++ ext)
 
 
-guessType :: FilePath -> BS.Text -> String
+guessTypeByName fname = drop 1 $ takeExtension fname
+
+
+guessType :: FilePath -> BS.ByteString -> String
 guessType fname contents 
-    | BS.head contents == '@' = "bib"
+    | BS.head contents == ord' '@' = "bib"
     | magic == pdfMagic = "pdf"
     | magic == psMagic = "ps"
-    | otherwise = drop 1 $ takeExtension fname
+    | otherwise = guessTypeByName fname
    where magic = BS.take 4 contents
-         pdfMagic = BS.pack "%PDF"
-         psMagic  = BS.pack "%!PS"
-        
+         pdfMagic = BS.pack $ map ord' "%PDF"
+         psMagic  = BS.pack $ map ord' "%!PS"
+         ord' = fromIntegral . ord 
+

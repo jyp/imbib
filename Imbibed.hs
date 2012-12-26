@@ -7,10 +7,12 @@ Search google on title ?
 -}
 
 import Control.Applicative hiding ((<|>),many)
+import Control.Exception (catch)
 import Control.Monad
 import Control.Monad.Trans
--- import qualified Data.ByteString 
-import qualified Data.ByteString.Lazy.UTF8 as UTF8 (toString)
+import qualified Data.ByteString.Lazy as BS
+import qualified Data.Text.Lazy.Encoding as T
+import qualified Data.Text.Lazy as T
 import Data.Char
 import Data.List
 import Data.Maybe
@@ -54,8 +56,10 @@ main = do
   let gioBibfile = fileFromURI ("file://" ++ bibfile)
       ex = fileQueryExists gioBibfile Nothing
   putStrLn $ "Bibfile exists? " ++ show ex
-  monitor <- fileMonitorFile gioBibfile [] Nothing
+  monitor <- fileMonitor gioBibfile [] Nothing
   Gtk.on monitor fileMonitorChanged $ \childFile otherFile evType -> do
+         -- This may not work. See bug: http://hackage.haskell.org/trac/gtk2hs/ticket/1221
+         -- (bug report copied at the end of this file)
          putStrLn $ "Bibfile changed; reloading " ++ show evType
          mBib <- loadBibliography
          case mBib of
@@ -197,8 +201,8 @@ main = do
   boxPackStart layout scr PackGrow 0
   containerAdd win layout
 
-  catchGError (windowSetIconFromFile win iconFile) $ \(GError dom code msg) -> do
-      putStrLn $ "Could not load icon file: " ++ msg
+  catch (windowSetIconFromFile win iconFile) $ \e -> do
+      putStrLn $ "Could not load icon file: " ++ show (e :: GError)
   windowSetDefaultSize win 640 360
   widgetShowAll win
   mainGUI 
@@ -242,7 +246,7 @@ recievedFile i store uri = do
     Right file -> do 
       putStrLn "Success!"
       let fileType = guessType uri file
-      if fileType == "bib" then receivedBib store (UTF8.toString file) else do
+      if fileType == "bib" then receivedBib store (T.unpack $ T.decodeUtf8 file) else do
         entry <- listStoreGetValue store i
         putStrLn "Saving..."
         fname <- saveFile (findAttachName entry fileType) file
@@ -282,3 +286,28 @@ saveStore store = do
   bib <- listStoreToList store
   saveBibliography bib
 
+
+{-
+
+In the following code, file monitoring stops working when the size of the list store is increased to a suitably big value.
+
+import System.GIO.File.File
+import System.GIO.File.FileMonitor
+import qualified Graphics.UI.Gtk as Gtk
+
+
+main = do
+ Gtk.initGUI
+ let gfile = fileFromURI "file:///some file to monitor"
+ monitor <- fileMonitorFile gfile [] Nothing
+ Gtk.on monitor fileMonitorChanged $ \childFile otherFile evType -> do
+        putStrLn $ "Changed: " ++ show evType
+
+ model <- Gtk.listStoreNew [0..1000::Int]
+ --- file monitoring works works with 100, fails with 1000
+ filt <- Gtk.treeModelFilterNew model []
+ view <- Gtk.treeViewNewWithModel filt
+
+ Gtk.mainGUI
+
+-}
