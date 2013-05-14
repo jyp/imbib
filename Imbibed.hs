@@ -30,6 +30,7 @@ import System.GIO.File.FileMonitor
 
 import System.Glib.GError
 import Text.ParserCombinators.Parsec (parse)
+-- import System.INotify -- hnotify
 
 import TypedBibData
 import BibDB
@@ -42,7 +43,7 @@ import Config
 main = do
   bib0 <- rightOrDie <$> loadBibliography
  
-  notify <- initINotify
+  -- notify <- initINotify
   initGUI
 
   win <- windowNew
@@ -52,10 +53,11 @@ main = do
              (Just (DragDestIface possible recieved))
   onDestroy win $ do
          saveStore model 
-         killINotify notify
+         -- killINotify notify
          mainQuit
+  
   {-
-    As of Dec 2012, using hinotify provokes a segmentation fault
+  -- Between Dec 2012 and May 2013, using hinotify provokes a segmentation fault:
   addWatch notify [Modify] bibfile $ \e -> do
          putStrLn $ "Bibfile changed; reloading"
          mBib <- loadBibliography
@@ -72,6 +74,7 @@ main = do
   putStrLn $ "Bibfile exists? " ++ show ex
   monitor <- fileMonitor gioBibfile [] Nothing
   
+
   Gtk.on monitor fileMonitorChanged $ \childFile otherFile evType -> do
          -- This may not work. See bug: http://hackage.haskell.org/trac/gtk2hs/ticket/1221
          -- (bug report copied at the end of this file)
@@ -83,6 +86,7 @@ main = do
                            when (bib /= oldBib) $ do
                              listStoreClear model
                              forM_ bib (listStoreAppend model)
+
   searchBox <- entryNew
 
   filt <- treeModelFilterNew model []

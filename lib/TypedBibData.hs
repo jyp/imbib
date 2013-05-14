@@ -94,8 +94,8 @@ findFirstAuthor Entry{..} = map snd authors ?? "????"
 findCite t = findCiteAuth t ++ " " ++ findYear t
 findNiceKey t = findField' "forcedkey" t ?? 
                 (intercalate "_" $ map sanitizeIdent $ [findFirstAuthor t, title, findYear t])
-    where title = ((filter ((> 1) . length) . map sanitizeIdent . words . findTitle $ t) 
-                   \\ ["for","le","an","to","be","on","make","the","how","why","its","from","towards"])
+    where title = ((filter ((> 2) . length) . map sanitizeIdent . words . findTitle $ t) 
+                   \\ ["de","am","for","le","an","to","be","on","make","the","how","why","its","from","towards"])
                   ?? "????"
 
 findFullText Entry {..} = map fst . filter ((`elem` ["pdf","ps"]) . snd) $ files
