@@ -13,7 +13,7 @@ module MaybeIO (
 import qualified System.Directory as R
 import Prelude hiding (putStrLn)
 import qualified Prelude as R
-import Control.Monad (ap,liftM)
+import Control.Monad (ap,liftM,unless)
 
 data MaybeIO a where
     Return :: a -> MaybeIO a
@@ -36,7 +36,7 @@ run dry mio = run' mio
   run' (a :>>= b) = do x <- run' a
                        run' (b x)
   run' (Safe i) = i
-  run' (Harmful msg i) = if dry then R.putStrLn ('|':msg) else i
+  run' (Harmful msg i) = R.putStrLn ('|':msg) >> (unless dry i)
 
 instance Monad MaybeIO where
     (>>=) = (:>>=)

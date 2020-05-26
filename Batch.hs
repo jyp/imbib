@@ -139,7 +139,7 @@ saveBib cfg b = safely "Saving bibfile" $ saveBibliography cfg b
 main :: IO ()
 main = do
   cfg <- loadConfiguration
-  bib <- (rightOrDie <$> loadBibliography cfg)
+  bib <- rightOrDie <$> loadBibliography cfg
   let options :: ParserInfo (Bool, MaybeIO ())
       options =
         info ((,) <$>
