@@ -1,16 +1,7 @@
 {-# LANGUAGE RecordWildCards, TupleSections  #-}
 
-import Control.Applicative hiding ((<|>),many)
-import Control.Monad
-import qualified Data.Text.Lazy as BS
-import Data.Char
 import Data.List
-import Data.Maybe
-import Data.Tree
-import Data.Traversable
 import System.FilePath
-import Data.Function
-import System.Environment
 import qualified Data.Map as M
 import Config
 import Options.Applicative
@@ -26,6 +17,7 @@ import MaybeIO
 -- CheckDuplicates, method 1
 
 
+pairs :: [t] -> [(t, t)]
 pairs (x:xs) = map (x,) xs ++ pairs xs
 pairs _ = []
 
@@ -35,24 +27,24 @@ checkDup cfg bib = do
   putString "Possible duplicates:"
   mapM_ putString $ map (show . map findTitle) dups
   saveBib cfg $ uniqDups ++ (bib \\ uniqDups) -- clump together the duplicates
-  where
-    uniqDups = nub $ concat $ dups
-    trueDups es =  filter (\e -> any (not . (areRelated e)) es) es
-    dups = [ es | (es0,shared) <- common, 
-             let es = trueDups es0, 
-             not (null es),
-             sum (map length shared) >= threshold (maximum (map (length . project . findTitle) es))]
-    threshold x = (8 * x) `div` 10
-    -- SC.printTree $ SC.select ("", clusterTree)
-    common = M.toList $ SC.commonStrings info
-    -- clusterTree = SC.construct info
-    info = [(project $ findTitle e,[e]) | e <- bib]
- 
+  where uniqDups = nub $ concat $ dups
+        trueDups es = -- filter (\e -> any (not . (areRelated e)) es)
+                      es
+        dups = [es | (es0,shared) <- common,
+                let es = trueDups es0,
+                not (null es),
+                sum (map length shared) >= threshold (maximum (map (length . project . findTitle) es))]
+        threshold x = (8 * x) `div` 10
+        -- SC.printTree $ SC.select ("", clusterTree)
+        common = M.toList $ SC.commonStrings info
+        -- clusterTree = SC.construct info
+        info = [(project $ findTitle e,[e]) | e <- bib]
+
 -------------------------------------------------------------------------
 -- Auto-renaming of attachments
 
 rename :: (String -> String) -> (String,String) -> MaybeIO (String,String) 
-rename new (oldfname,typ) 
+rename new (oldfname,typ)
     | oldfname == newfname = bail
     | otherwise = do
   oex <- doesFileExist oldfname
@@ -63,7 +55,6 @@ rename new (oldfname,typ)
     (False,_) -> putString ("old does not exist: " ++ oldfname) >> bail
     (_,True) -> putString  ("new already exists: " ++ newfname) >> bail
     -- (_,True) -> do removeFile oldfname >> return (newfname,typ)
-                        
   where newfname = new typ
         bail = return (oldfname,typ)
 
@@ -109,19 +100,20 @@ mergeIn cfg bib fname = do
 
 
 {-
-mergeBibs bib1 bib2 = 
+mergeBibs bib1 bib2 =
     where bibM1 = M.fromList [(project $ findTitle e, e) | e <- bib1]
--}          
+-}
 
 
 -----------------------------------------------------------------------
 -- Harvest Downloads
 
+harvest :: InitFile -> [Entry] -> MaybeIO ()
 harvest cfg bib = do
   contents <- getDirectoryContents' (downloadsDirectory cfg)
   let oldFiles = concatMap (map snd . files) bib
-      newFiles = contents \\ oldFiles 
-      papers = [Entry {kind = "download", 
+      newFiles = contents \\ oldFiles
+      papers = [Entry {kind = "download",
                        seeAlso = [],
                        authors = [],
                        files = [(fname,guessTypeByName fname)],
@@ -143,7 +135,7 @@ main = do
   let options :: ParserInfo (Bool, MaybeIO ())
       options =
         info ((,) <$>
-               switch (long "dry-run" <> help "don't perform any change (dry run)") <*>
+               switch (short 'd' <> long "dry-run" <> help "don't perform any change (dry run)") <*>
                subparser (command "check" (info (pure (checkAttachments cfg bib)) (progDesc "check that attachment exist")) <>
                           command "rename" (info (pure (renameAttachments cfg bib)) (progDesc "rename/move atachments to where they belong")) <>
                           command "merge" (info (mergeIn cfg bib <$> (argument str (metavar "FILE"))) (progDesc "merge a bibfile into the database")) <>
