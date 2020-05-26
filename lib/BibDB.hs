@@ -22,7 +22,7 @@ import Config
 -- DB
 
 
-loadBibliography = loadBibliographyFrom bibfile
+loadBibliography cfg = loadBibliographyFrom (bibfile cfg)
 
 loadBibliographyFrom fileName = do
   mBib <- fmap bibToForest <$> parseFromFile parseBib fileName 
@@ -33,9 +33,9 @@ loadBibliographyFrom fileName = do
 
 formatBib = concatMap formatEntry . map treeToEntry
 
-saveBibliography :: [TypedBibData.Entry] -> IO ()
-saveBibliography bib = do
-  writeFile bibfile (formatBib bib)
-  putStrLn $ show (length bib) ++ " entries saved to " ++ bibfile
+saveBibliography :: InitFile -> [Entry] -> IO ()
+saveBibliography cfg bib = do
+  writeFile (bibfile cfg) (formatBib bib)
+  putStrLn $ show (length bib) ++ " entries saved to " ++ (bibfile cfg)
 
 

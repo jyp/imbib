@@ -13,6 +13,7 @@ import Data.Function
 import System.Environment
 import qualified Data.Map as M
 import Config
+import Options.Applicative
 
 import TypedBibData
 import BibDB
@@ -28,11 +29,11 @@ import MaybeIO
 pairs (x:xs) = map (x,) xs ++ pairs xs
 pairs _ = []
 
-checkDup bib = do
+checkDup cfg bib = do
   -- mapM_ putString $  [ groom $ (map findTitle es, shared) | (es,shared) <- common ]
   putString "Possible duplicates:"
   mapM_ putString $ map (show . map findTitle) dups
-  saveBib $ uniqDups ++ (bib \\ uniqDups) -- clump together the duplicates
+  saveBib cfg $ uniqDups ++ (bib \\ uniqDups) -- clump together the duplicates
   where
     uniqDups = nub $ concat $ dups
     trueDups es =  filter (\e -> any (not . (areRelated e)) es) es
@@ -65,14 +66,13 @@ rename new (oldfname,typ)
   where newfname = new typ
         bail = return (oldfname,typ)
 
-renamer :: Entry -> MaybeIO Entry
-renamer t@Entry{..} = do 
-  files <- traverse (rename (findAttachName t)) files
+renamer cfg t@Entry{..} = do 
+  files <- traverse (rename (findAttachName cfg t)) files
   return $ Entry{..}
 
-renameAttachments bib = do 
-  bib' <- traverse renamer bib
-  saveBib bib'
+renameAttachments cfg bib = do 
+  bib' <- traverse (renamer cfg) bib
+  saveBib cfg bib'
 
 ------------------------------------------------------------------------
 -- Check for orphans
@@ -82,10 +82,13 @@ check (fname,typ) = do
   ex <- doesFileExist fname
   if (not ex) then putString $ "missing: " ++ fname else return ()
 
+checker :: Entry -> MaybeIO ()
 checker Entry{..} = mapM_ check files
 
+getDirectoryContents' :: FilePath -> MaybeIO [FilePath]
 getDirectoryContents' d = map (d </>) <$> getDirectoryContents d
 
+checkAttachments :: [Entry] -> MaybeIO ()
 checkAttachments bib = do
   fnames <- getDirectoryContents' "/home/bernardy/Papers"
   let attachments = [ f | e <- bib, (f,t) <- files e] 
@@ -95,9 +98,9 @@ checkAttachments bib = do
 ----------------------------------------------------------------------
 -- Merge another bibtex file
 
-mergeIn bib fname = do
+mergeIn cfg bib fname = do
   bib2 <- uncheckedHarmless $ rightOrDie <$> loadBibliographyFrom fname
-  checkDup $ bib2 ++ bib
+  checkDup cfg $ bib2 ++ bib
   return ()
 
 
@@ -110,8 +113,8 @@ mergeBibs bib1 bib2 =
 -----------------------------------------------------------------------
 -- Harvest Downloads
 
-harvest bib = do
-  contents <- getDirectoryContents' downloadsDirectory
+harvest cfg bib = do
+  contents <- getDirectoryContents' (downloadsDirectory cfg)
   let oldFiles = concatMap (map snd . files) bib
       newFiles = contents \\ oldFiles 
       papers = [Entry {kind = "download", 
@@ -120,28 +123,38 @@ harvest bib = do
                        files = [(fname,guessTypeByName fname)],
                        otherFields = [("title",fname),("date","2010")]
                       } | fname <- newFiles, takeExtension fname `elem` [".pdf",".ps"]]
-  saveBib $ papers ++ bib
+  saveBib cfg $ papers ++ bib
 
 ------------------------------------------------------------------------
 -- Driver
 
-saveBib b = safely "Saving bibfile" $ saveBibliography b
+saveBib :: InitFile -> [Entry] -> MaybeIO ()
+saveBib cfg b = safely "Saving bibfile" $ saveBibliography cfg b
 
+main :: IO ()
+main = do
+  cfg <- loadConfiguration
+  bib <- (rightOrDie <$> loadBibliography cfg)
+  let options :: ParserInfo (Bool, MaybeIO ())
+      options =
+        info ((,) <$>
+               switch (long "dry-run" <> help "don't perform any change (dry run)") <*>
+               subparser (command "check" (info (pure (checkAttachments bib)) (progDesc "check that attachment exist")) <>
+                          command "rename" (info (pure (checkAttachments bib)) (progDesc "rename/move atachments to where they belong")) <>
+                          command "merge" (info (mergeIn cfg bib <$> (argument str (metavar "FILE"))) (progDesc "merge a bibfile into the database")) <>
+                          command "harvest" (info (pure (checkAttachments bib)) (progDesc "harvest attachments (???)")) <>
+                          command "dup" (info (pure (checkAttachments bib)) (progDesc "check for duplicates"))
+                        )) (fullDesc <> progDesc "batch handling of bib db")
+  (dry,cmd) <- execParser options
+  run dry cmd
 
-go (command: ~(arg1:_)) = do 
-  bib <- uncheckedHarmless $ (rightOrDie <$> loadBibliography)
-  case command of
-    "check" -> checkAttachments bib
-    "rename" -> renameAttachments bib
-    "merge" -> mergeIn bib arg1
-    "harvest" -> harvest bib
-    "dup" -> checkDup bib
-
+dryRun :: MaybeIO a -> IO a
 dryRun = run True
+
+trueRun :: MaybeIO a -> IO a
 trueRun = run False
 
-main = do 
-  args <- getArgs
-  case args of
-    ("dry":args) -> dryRun $ go args
-    _ -> trueRun $ go args
+
+-- Local Variables:
+-- dante-target: "imbibatch"
+-- End:

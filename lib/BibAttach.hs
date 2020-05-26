@@ -34,7 +34,7 @@ saveFile name contents = do
   return name
 
 
-findAttachName entry ext = attachmentsRoot </> (sanitize $ findTitle entry ++ "-" ++ findYear entry ++ "." ++ ext)
+findAttachName cfg entry ext = attachmentsRoot cfg </> (sanitize $ findTitle entry ++ "-" ++ findYear entry ++ "." ++ ext)
 
 
 guessTypeByName fname = drop 1 $ takeExtension fname
