@@ -1,6 +1,5 @@
 module Config where
-    
-import Paths_imbib
+
 import System.FilePath
 import System.Process
 import System.Directory
@@ -18,13 +17,12 @@ getConfiguration :: IO ConfigParser
 getConfiguration = do
   homeDirectory <- getHomeDirectory
   let startConfig = rightOrDie $ set (emptyCP {accessfunc = interpolatingAccess 10}) "DEFAULT" "home" homeDirectory
-  c0f <- getDataFileName configFileName
-  c0 <- rightOrDie <$> readfile startConfig c0f
+  let c0 = rightOrDie (readstring startConfig dflt)
   let user = homeDirectory </> configFileName
   ex <- doesFileExist user
-  if ex then  rightOrDie <$> readfile c0 user else return c0
+  if ex then rightOrDie <$> readfile c0 user else return c0
 
-  
+
 
 data InitFile = InitFile
      {
@@ -32,6 +30,15 @@ data InitFile = InitFile
        runViewer :: String -> IO ProcessHandle,
        runEditor :: Int -> String -> IO ProcessHandle 
      }
+
+dflt :: String
+dflt = "\
+  \watched = %(home)s/Downloads\n\
+  \archive = %(home)s/Papers\n\
+  \library = %(home)s/library.bib\n\
+  \viewer = /usr/bin/evince\n\
+  \editor = /usr/bin/emacs\n\
+  \"
 
 loadConfiguration :: IO InitFile
 loadConfiguration = do

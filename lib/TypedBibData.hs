@@ -46,7 +46,7 @@ pAuth = do
      return (first, intercalate " " p1)
     <|> let (first,[last]) = splitAt (length p1 - 1) p1 in
             return (intercalate " " first, last)
-      
+
 pAuthName = concat <$> many (pAuthBlock True)
 pAuthNamePart = concat <$> many1 (pAuthBlock False)
 

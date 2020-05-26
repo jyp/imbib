@@ -29,6 +29,7 @@ import MaybeIO
 pairs (x:xs) = map (x,) xs ++ pairs xs
 pairs _ = []
 
+checkDup :: InitFile -> [Entry] -> MaybeIO ()
 checkDup cfg bib = do
   -- mapM_ putString $  [ groom $ (map findTitle es, shared) | (es,shared) <- common ]
   putString "Possible duplicates:"
@@ -40,11 +41,11 @@ checkDup cfg bib = do
     dups = [ es | (es0,shared) <- common, 
              let es = trueDups es0, 
              not (null es),
-             sum (map length shared) >= threshold (minimum (map (length . project . findTitle) es))]
-    threshold x = (9 * x) `div` 10
+             sum (map length shared) >= threshold (maximum (map (length . project . findTitle) es))]
+    threshold x = (8 * x) `div` 10
     -- SC.printTree $ SC.select ("", clusterTree)
     common = M.toList $ SC.commonStrings info
-    clusterTree = SC.construct info
+    -- clusterTree = SC.construct info
     info = [(project $ findTitle e,[e]) | e <- bib]
  
 -------------------------------------------------------------------------
@@ -66,10 +67,12 @@ rename new (oldfname,typ)
   where newfname = new typ
         bail = return (oldfname,typ)
 
+renamer :: InitFile -> Entry -> MaybeIO Entry
 renamer cfg t@Entry{..} = do 
   files <- traverse (rename (findAttachName cfg t)) files
   return $ Entry{..}
 
+renameAttachments :: InitFile -> [Entry] -> MaybeIO ()
 renameAttachments cfg bib = do 
   bib' <- traverse (renamer cfg) bib
   saveBib cfg bib'
@@ -78,7 +81,7 @@ renameAttachments cfg bib = do
 -- Check for orphans
 
 check :: (String,String) -> MaybeIO () 
-check (fname,typ) = do
+check (fname,_typ) = do
   ex <- doesFileExist fname
   if (not ex) then putString $ "missing: " ++ fname else return ()
 
@@ -88,16 +91,17 @@ checker Entry{..} = mapM_ check files
 getDirectoryContents' :: FilePath -> MaybeIO [FilePath]
 getDirectoryContents' d = map (d </>) <$> getDirectoryContents d
 
-checkAttachments :: [Entry] -> MaybeIO ()
-checkAttachments bib = do
-  fnames <- getDirectoryContents' "/home/bernardy/Papers"
-  let attachments = [ f | e <- bib, (f,t) <- files e] 
-      
+checkAttachments :: InitFile -> [Entry] -> MaybeIO ()
+checkAttachments cfg bib = do
+  fnames <- getDirectoryContents' (attachmentsRoot cfg)
+  let attachments = [ f | e <- bib, (f,_t) <- files e] 
+
   mapM_ putString (fnames \\ attachments)
 
 ----------------------------------------------------------------------
 -- Merge another bibtex file
 
+mergeIn :: InitFile -> [Entry] -> String -> MaybeIO ()
 mergeIn cfg bib fname = do
   bib2 <- uncheckedHarmless $ rightOrDie <$> loadBibliographyFrom fname
   checkDup cfg $ bib2 ++ bib
@@ -125,6 +129,7 @@ harvest cfg bib = do
                       } | fname <- newFiles, takeExtension fname `elem` [".pdf",".ps"]]
   saveBib cfg $ papers ++ bib
 
+
 ------------------------------------------------------------------------
 -- Driver
 
@@ -139,11 +144,12 @@ main = do
       options =
         info ((,) <$>
                switch (long "dry-run" <> help "don't perform any change (dry run)") <*>
-               subparser (command "check" (info (pure (checkAttachments bib)) (progDesc "check that attachment exist")) <>
-                          command "rename" (info (pure (checkAttachments bib)) (progDesc "rename/move atachments to where they belong")) <>
+               subparser (command "check" (info (pure (checkAttachments cfg bib)) (progDesc "check that attachment exist")) <>
+                          command "rename" (info (pure (renameAttachments cfg bib)) (progDesc "rename/move atachments to where they belong")) <>
                           command "merge" (info (mergeIn cfg bib <$> (argument str (metavar "FILE"))) (progDesc "merge a bibfile into the database")) <>
-                          command "harvest" (info (pure (checkAttachments bib)) (progDesc "harvest attachments (???)")) <>
-                          command "dup" (info (pure (checkAttachments bib)) (progDesc "check for duplicates"))
+                          command "harvest" (info (pure (harvest cfg bib)) (progDesc "harvest attachments (???)")) <>
+                          command "dup" (info (pure (checkDup cfg bib)) (progDesc "check for duplicates")) <>
+                          command "cleanup" (info (pure (saveBib cfg bib)) (progDesc "cleanup keys etc."))
                         )) (fullDesc <> progDesc "batch handling of bib db")
   (dry,cmd) <- execParser options
   run dry cmd
