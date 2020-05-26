@@ -152,4 +152,4 @@ formatEntry (Entry.Cons entryType bibId items) =
 
 e1 `isSeeAlso` e2 = findNiceKey e1 `elem` (map snd (seeAlso e2))
 
-areRelated e1 e2 = e1 == e2 || e1 `isSeeAlso` e2 || e2 `isSeeAlso` e1
+areRelated e1 e2 = e1 `isSeeAlso` e2 || e2 `isSeeAlso` e1

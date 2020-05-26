@@ -12,33 +12,41 @@ import BibAttach
 import qualified SuffixTreeCluster as SC
 -- import Text.Groom
 import MaybeIO
+import Diff
+import Data.Char (toLower)
 
 -------------------------------------------------------------------------
 -- CheckDuplicates, method 1
 
 
 pairs :: [t] -> [(t, t)]
-pairs (x:xs) = map (x,) xs ++ pairs xs
+pairs (x:xs) = map (x,) xs ++ map (,x) xs  ++ pairs xs
 pairs _ = []
 
+dist :: String -> String -> Int
+dist x y = length $ diff' (project x) (project y)
+
 checkDup :: InitFile -> [Entry] -> MaybeIO ()
-checkDup cfg bib = do
+checkDup cfg bib' = do
   -- mapM_ putString $  [ groom $ (map findTitle es, shared) | (es,shared) <- common ]
+  putString ("Removing exact duplicates:" ++ show (length bib' - length bib))
   putString "Possible duplicates:"
-  mapM_ putString $ map (show . map findTitle) dups
+  uncheckedHarmless $ mapM_ print [(findTitle e1,findTitle e2) | (e1,e2) <- dups]
   saveBib cfg $ uniqDups ++ (bib \\ uniqDups) -- clump together the duplicates
-  where uniqDups = nub $ concat $ dups
-        trueDups es = -- filter (\e -> any (not . (areRelated e)) es)
-                      es
-        dups = [es | (es0,shared) <- common,
-                let es = trueDups es0,
+  where uniqDups = nub $ map fst $ dups
+        dups = [(e1,e2) | (es,shared) <- common,
+                -- a sufficently long substring is shared
+                maximum (map length shared) >= threshold (minimum (map (length . project . findTitle) es)),
                 not (null es),
-                sum (map length shared) >= threshold (maximum (map (length . project . findTitle) es))]
-        threshold x = (8 * x) `div` 10
+                (e1,e2) <- pairs es,
+                not (areRelated e1 e2),
+                dist (findTitle e1) (findTitle e2) <= 10]
+        threshold x = (9 * x) `div` 10
         -- SC.printTree $ SC.select ("", clusterTree)
         common = M.toList $ SC.commonStrings info
         -- clusterTree = SC.construct info
         info = [(project $ findTitle e,[e]) | e <- bib]
+        bib = nub bib'
 
 -------------------------------------------------------------------------
 -- Auto-renaming of attachments
@@ -95,7 +103,7 @@ checkAttachments cfg bib = do
 mergeIn :: InitFile -> [Entry] -> String -> MaybeIO ()
 mergeIn cfg bib fname = do
   bib2 <- uncheckedHarmless $ rightOrDie <$> loadBibliographyFrom fname
-  checkDup cfg $ bib2 ++ bib
+  saveBib cfg $ bib2 ++ bib
   return ()
 
 
@@ -138,7 +146,7 @@ main = do
                switch (short 'd' <> long "dry-run" <> help "don't perform any change (dry run)") <*>
                subparser (command "check" (info (pure (checkAttachments cfg bib)) (progDesc "check that attachment exist")) <>
                           command "rename" (info (pure (renameAttachments cfg bib)) (progDesc "rename/move atachments to where they belong")) <>
-                          command "merge" (info (mergeIn cfg bib <$> (argument str (metavar "FILE"))) (progDesc "merge a bibfile into the database")) <>
+                          command "import" (info (mergeIn cfg bib <$> (argument str (metavar "FILE"))) (progDesc "merge a bibfile into the database")) <>
                           command "harvest" (info (pure (harvest cfg bib)) (progDesc "harvest attachments (???)")) <>
                           command "dup" (info (pure (checkDup cfg bib)) (progDesc "check for duplicates")) <>
                           command "cleanup" (info (pure (saveBib cfg bib)) (progDesc "cleanup keys etc."))
