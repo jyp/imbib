@@ -44,8 +44,12 @@ pAuth = do
      many Parsec.space
      first <- pAuthName
      return (first, intercalate " " p1)
-    <|> let (first,[last]) = splitAt (length p1 - 1) p1 in
-            return (intercalate " " first, last)
+    <|> do _ <- many Parsec.space
+           return $ case p1 of
+             [] -> ("","UnknownAuthor")
+             [x] -> ("",x)
+             _ -> let (first,[lastName]) = splitAt (length p1 - 1) p1
+                  in (intercalate " " first, lastName)
 
 pAuthName = concat <$> many (pAuthBlock True)
 pAuthNamePart = concat <$> many1 (pAuthBlock False)
@@ -86,10 +90,14 @@ findTitle = findField "title"
 findField :: String -> Entry -> String
 findField f t = findField' f t ?? "????"
 
-findField' f  Entry {..} = map snd (filter ((== f) . fst) otherFields)
+eqField :: [Char] -> [Char] -> Bool
+eqField = (==) `on` (map toLower)
+
+findField' :: String -> Entry -> [String]
+findField' f  Entry {..} = map snd (filter ((eqField f) . fst) otherFields)
 
 findFirstAuthor :: Entry -> String
-findFirstAuthor Entry{..} = map snd authors ?? "????"
+findFirstAuthor Entry{..} = map snd authors ?? "UnknownAuthor"
 
 findCite t = findCiteAuth t ++ " " ++ findYear t
 findNiceKey t = findField' "forcedkey" t ?? 
@@ -107,12 +115,13 @@ partitions [] l = [l]
 partitions (x:xs) l = yes : partitions xs no
     where (yes,no) = partition x l
 
-entryToTree :: Entry.T -> Entry
-entryToTree Entry.Cons{..} = Entry {..}
+entryToTree :: Entry.T -> Either ParseError Entry
+entryToTree Entry.Cons{..} =
+  do authors <- mapM authorToTree [a | (_,as) <- auths, a <- splitOn " and " as]
+     return Entry {..}
   where
-    [auths,fils,seeAlsos,otherFields] = partitions (map (\k -> (k ==) . fst) ["author","file","see"]) fields
+    [auths,fils,seeAlsos,otherFields] = partitions (map (\k -> (eqField k) . fst) ["author","file","see"]) fields
     kind = entryType
-    authors = [authorToTree a | (_,as) <- auths, a <- splitOn " and " as]
     ident = identifier
     files = [fileToTree f | (_,fs) <- fils, f <- splitOn ";" fs]
     seeAlso = [seeAlsoToTree r | (_,rs) <- seeAlsos, not $ null rs, r <- splitOn ";" rs ]
@@ -129,17 +138,16 @@ treeToEntry t@Entry {..} = Entry.Cons{..}
 fileToTree (':':fs) = (f, t) 
     where (f,':':t) = break (== ':') fs
 
-authorToTree :: String -> (String,String)
-authorToTree s = case parse pAuth ("in " ++ s) s of
-                            Left err -> error $ show err
-                            Right r -> r
+authorToTree :: String -> Either ParseError (String,String)
+authorToTree s = parse (pAuth <* spaces) ("parse error in author name: " ++ s) s
 
 seeAlsoToTree r = (how,what)
     where (how,':':what) = break (== ':') r
 
 l ?? b = head $ l ++ [b]
 
-bibToForest = map entryToTree 
+bibToForest :: [T] -> Either ParseError [Entry]
+bibToForest xs = mapM entryToTree xs
 
 formatEntry :: Entry.T -> String
 formatEntry (Entry.Cons entryType bibId items) =
