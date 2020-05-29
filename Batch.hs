@@ -13,8 +13,7 @@ import qualified SuffixTreeCluster as SC
 -- import Text.Groom
 import MaybeIO
 import Diff
-import Data.Char (toLower)
-
+import Data.Function (on)
 -------------------------------------------------------------------------
 -- CheckDuplicates, method 1
 
@@ -67,7 +66,7 @@ rename new (oldfname,typ)
         bail = return (oldfname,typ)
 
 renamer :: InitFile -> Entry -> MaybeIO Entry
-renamer cfg t@Entry{..} = do 
+renamer cfg t@Entry{..} = do
   files <- traverse (rename (findAttachName cfg t)) files
   return $ Entry{..}
 
@@ -133,6 +132,9 @@ harvest cfg bib = do
 ------------------------------------------------------------------------
 -- Driver
 
+sortBib :: InitFile -> [Entry] -> MaybeIO ()
+sortBib cfg b = saveBib cfg (sortBy (compare `on` \x -> (findFirstAuthor x,findYear x)) b)
+
 saveBib :: InitFile -> [Entry] -> MaybeIO ()
 saveBib cfg b = safely "Saving bibfile" $ saveBibliography cfg b
 
@@ -149,7 +151,8 @@ main = do
                           command "import" (info (mergeIn cfg bib <$> (argument str (metavar "FILE"))) (progDesc "merge a bibfile into the database")) <>
                           command "harvest" (info (pure (harvest cfg bib)) (progDesc "harvest attachments (???)")) <>
                           command "dup" (info (pure (checkDup cfg bib)) (progDesc "check for duplicates")) <>
-                          command "cleanup" (info (pure (saveBib cfg bib)) (progDesc "cleanup keys etc."))
+                          command "cleanup" (info (pure (saveBib cfg bib)) (progDesc "cleanup keys etc.")) <>
+                          command "sort" (info (pure (sortBib cfg bib)) (progDesc "sort entries by key"))
                         )) (fullDesc <> progDesc "batch handling of bib db")
   (dry,cmd) <- execParser options
   run dry cmd
