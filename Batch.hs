@@ -10,7 +10,7 @@ import TypedBibData
 import BibDB
 import BibAttach
 import qualified SuffixTreeCluster as SC
--- import Text.Groom
+import Text.Groom
 import MaybeIO
 import Diff
 import Data.Function (on)
@@ -19,27 +19,30 @@ import Data.Function (on)
 
 
 pairs :: [t] -> [(t, t)]
-pairs (x:xs) = map (x,) xs ++ map (,x) xs  ++ pairs xs
+pairs (x:xs) = map (x,) xs ++ pairs xs
 pairs _ = []
 
 dist :: String -> String -> Int
-dist x y = length $ diff' (project x) (project y)
+dist x y = length $ filter (/= B) $ map fst $ diff' (project x) (project y)
 
 checkDup :: InitFile -> [Entry] -> MaybeIO ()
 checkDup cfg bib' = do
   -- mapM_ putString $  [ groom $ (map findTitle es, shared) | (es,shared) <- common ]
   putString ("Removing exact duplicates:" ++ show (length bib' - length bib))
-  putString "Possible duplicates:"
+  putString ("Candidate duplicate groups:\n" ++ (groom $ [(shared,map findTitle es) | (es,shared) <- dupGroups]))
+  putString "Suspected duplicates:"
   uncheckedHarmless $ mapM_ print [(findTitle e1,findTitle e2) | (e1,e2) <- dups]
-  saveBib cfg $ uniqDups ++ (bib \\ uniqDups) -- clump together the duplicates
+  sortBib cfg $ bib -- (uniqDups ++ (bib \\ uniqDups))
   where uniqDups = nub $ map fst $ dups
-        dups = [(e1,e2) | (es,shared) <- common,
-                -- a sufficently long substring is shared
-                maximum (map length shared) >= threshold (minimum (map (length . project . findTitle) es)),
+        dups = [(e1,e2) | (es,_) <- dupGroups,
                 not (null es),
                 (e1,e2) <- pairs es,
                 not (areRelated e1 e2),
-                dist (findTitle e1) (findTitle e2) <= 10]
+                dist (findTitle e1) (findTitle e2) <= 10
+                        ]
+        dupGroups = [(es,shared) | (es,shared) <- common,
+                     -- a sufficently long substring is shared
+                     maximum (map length shared) >= threshold (minimum (map (length . project . findTitle) es))]
         threshold x = (9 * x) `div` 10
         -- SC.printTree $ SC.select ("", clusterTree)
         common = M.toList $ SC.commonStrings info
