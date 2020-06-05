@@ -56,6 +56,7 @@ library
   build-depends: directory>=1.2
   build-depends: process>=1.1
   build-depends: filepath>=1.3
+  build-depends: parsek
   build-depends: parsec>=3.1
   build-depends: containers >= 0.4
   build-depends: split>=0.1

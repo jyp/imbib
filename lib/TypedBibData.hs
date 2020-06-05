@@ -13,7 +13,7 @@ import Data.Tree
 import Text.BibTeX.Entry as Entry
 import Text.BibTeX.Parse
 import Data.Function
-import Text.ParserCombinators.Parsec as Parsec
+import Text.ParserCombinators.Parsek as Parsek
 
 
 -------------------------------------
@@ -36,32 +36,56 @@ sanitizeIdent = filter (\c -> (c >= 'a' && c <= 'z') || isDigit c || c `elem` ".
 
 parseBib = skippingSpace $ skippingLeadingSpace Text.BibTeX.Parse.file
 
-pAuth :: Parser (String, String)
-pAuth = do
-  many Parsec.space
-  p1 <- pAuthNamePart `Parsec.sepBy` (many Parsec.space)
-  do Parsec.char ','
-     many Parsec.space
-     first <- pAuthName
-     return (first, intercalate " " p1)
-    <|> do _ <- many Parsec.space
-           return $ case p1 of
-             [] -> ("","UnknownAuthor")
-             [x] -> ("",x)
-             _ -> let (first,[lastName]) = splitAt (length p1 - 1) p1
-                  in (intercalate " " first, lastName)
+-- >>> test
+-- Left [([("\"{\"",Just '\n')],"satisfy"),([("\"\\\\\"",Just '\n')],"satisfy"),([],"satisfy"),([("\"}\"",Just '\n')],"satisfy")]
 
-pAuthName = concat <$> many (pAuthBlock True)
-pAuthNamePart = concat <$> many1 (pAuthBlock False)
+test = parse (pAuthBlock True) longestResult
+ "{students of the\nUtrecht University Generic Programming class}"
+ -- "Ba, Jimmy"
 
-pAuthBlock :: Bool -> Parser String
-pAuthBlock spaceOk =
-   liftM3 (\open body close -> open : body ++ close : [])
-      (Parsec.char '{') pAuthName (Parsec.char '}') <|>
+
+pAuthLastFirst = do
+  lst <- pAuthName
+  spaces
+  _ <- string ","
+  spaces
+  frst <- pAuthName
+  return (frst,lst)
+
+pAuthFirstLast = do
+  frst <- pAuthName
+  _ <- some space
+  lst <- pAuthNamePart
+  return (frst,lst)
+
+pAuthLastOnly = do
+  lst <- pAuthNamePart
+  return ("",lst)
+
+pAuth :: Parser Char ([Char], [Char])
+pAuth = pAuthFirstLast <|> pAuthLastFirst <|> pAuthLastOnly
+
+pAuthors :: Parser Char [([Char], [Char])]
+pAuthors = pAuth `Parsek.sepBy1` (some space >> string "and" >> some space)
+           <|> return [("","UnknownAuthor")]
+
+
+pAuthName :: Parser Char [Char]
+pAuthName = intercalate " " <$> (pAuthNamePart `sepBy1` some space)
+
+pAuthNamePart :: Parser Char [Char]
+pAuthNamePart =
+  do n <- concat <$> some (pAuthBlock False)
+     when (n == "and") (fail "and is not a name")
+     return n
+
+pAuthBlock :: Bool -> Parser Char String
+pAuthBlock allowSpace =
+   (\open body close -> open : body ++ close : []) <$> (Parsek.char '{') <*> (concat <$> many (pAuthBlock True)) <*> (Parsek.char '}') <|>
    sequence
-      [Parsec.char '\\',
-       Parsec.oneOf "{}'`^&%\".,~# " <|> Parsec.letter] <|>
-   fmap (:[]) (Parsec.noneOf $ [' ' | not spaceOk] ++ "},")
+      [Parsek.char '\\',
+       Parsek.oneOf "{}'`^&%\".,~# " <|> Parsek.letter] <|>
+   munch1 (not . (`elem` ((if allowSpace then "" else "\n\t " ) ++ "{},")))
 
 
 -- When searching ignore special characters
@@ -115,9 +139,9 @@ partitions [] l = [l]
 partitions (x:xs) l = yes : partitions xs no
     where (yes,no) = partition x l
 
-entryToTree :: Entry.T -> Either ParseError Entry
+entryToTree :: Entry.T -> Either String Entry
 entryToTree Entry.Cons{..} =
-  do authors <- mapM authorToTree [a | (_,as) <- auths, a <- splitOn " and " as]
+  do authors <- authorsToTree (concatMap snd auths)
      return Entry {..}
   where
     [auths,fils,seeAlsos,otherFields] = partitions (map (\k -> (eqField k) . fst) ["author","file","see"]) fields
@@ -135,18 +159,21 @@ treeToEntry t@Entry {..} = Entry.Cons{..}
          entryType = kind
          identifier = findNiceKey t 
 
+fileToTree :: [Char] -> ([Char], [Char])
 fileToTree (':':fs) = (f, t) 
     where (f,':':t) = break (== ':') fs
 
-authorToTree :: String -> Either ParseError (String,String)
-authorToTree s = parse (pAuth <* spaces) ("parse error in author name: " ++ s) s
+authorsToTree :: String -> Either String [(String,String)]
+authorsToTree s = case parse (pAuthors <* spaces) longestResultWithLeftover s of
+   Right (r,[]) -> Right r
+   _ -> Left ("parse error in authors name: " ++ s)
 
 seeAlsoToTree r = (how,what)
     where (how,':':what) = break (== ':') r
 
 l ?? b = head $ l ++ [b]
 
-bibToForest :: [T] -> Either ParseError [Entry]
+bibToForest :: [T] -> Either String [Entry]
 bibToForest xs = mapM entryToTree xs
 
 formatEntry :: Entry.T -> String
@@ -161,3 +188,5 @@ formatEntry (Entry.Cons entryType bibId items) =
 e1 `isSeeAlso` e2 = findNiceKey e1 `elem` (map snd (seeAlso e2))
 
 areRelated e1 e2 = e1 `isSeeAlso` e2 || e2 `isSeeAlso` e1
+
+

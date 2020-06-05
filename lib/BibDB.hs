@@ -14,7 +14,7 @@ loadBibliography cfg = loadBibliographyFrom (bibfile cfg)
 loadBibliographyFrom fileName = do
   putStrLn ("Loading " ++ fileName)
   mBib <- fmap bibToForest <$> parseFromFile parseBib fileName
-  case join mBib of
+  case join (either (Left . show) Right $ mBib) of
     Left err -> return (Left err)
     Right bib -> do putStrLn $ show (length $ bib) ++ " entries loaded."
                     return (Right bib)
