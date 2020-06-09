@@ -5,9 +5,9 @@ import System.Process
 import System.Directory
 import Data.ConfigFile
 
-rightOrDie :: Show a => Either a p -> p
-rightOrDie (Left err) = error (show err)
-rightOrDie (Right x) = x
+rightOrDie :: Show a => Either a p -> IO p
+rightOrDie (Left err) = fail (show err)
+rightOrDie (Right x) = return x
 
 
 configFileName :: [Char]
@@ -17,10 +17,10 @@ getConfiguration :: IO ConfigParser
 getConfiguration = do
   homeDirectory <- getHomeDirectory
   let startConfig = rightOrDie $ set (emptyCP {accessfunc = interpolatingAccess 10}) "DEFAULT" "home" homeDirectory
-  let c0 = rightOrDie (readstring startConfig dflt)
+  c0 <- rightOrDie =<< (flip readstring dflt <$> startConfig)
   let user = homeDirectory </> configFileName
   ex <- doesFileExist user
-  if ex then rightOrDie <$> readfile c0 user else return c0
+  if ex then rightOrDie =<< readfile c0 user else return c0
 
 
 
@@ -44,7 +44,7 @@ loadConfiguration :: IO InitFile
 loadConfiguration = do
   cfg <- getConfiguration
   let getOption = get cfg "DEFAULT"
-  return $ rightOrDie $ do
+  rightOrDie $ do
     downloadsDirectory <- getOption "watched"
     attachmentsRoot <- getOption "archive"
     bibfile <- getOption "library"

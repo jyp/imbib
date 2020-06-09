@@ -14,6 +14,7 @@ import Text.Groom
 import MaybeIO
 import Diff
 import Data.Function (on)
+import Control.Monad
 -------------------------------------------------------------------------
 -- CheckDuplicates, method 1
 
@@ -29,17 +30,15 @@ checkDup :: InitFile -> [Entry] -> MaybeIO ()
 checkDup cfg bib' = do
   -- mapM_ putString $  [ groom $ (map findTitle es, shared) | (es,shared) <- common ]
   putString ("Removing exact duplicates:" ++ show (length bib' - length bib))
-  putString ("Candidate duplicate groups:\n" ++ (groom $ [(shared,map findTitle es) | (es,shared) <- dupGroups]))
-  putString "Suspected duplicates:"
+  -- putString ("Candidate duplicate groups:\n" ++ (groom $ [(shared,map findTitle es) | (es,shared) <- dupGroups]))
   uncheckedHarmless $ mapM_ print [(findTitle e1,findTitle e2) | (e1,e2) <- dups]
   sortBib cfg $ bib -- (uniqDups ++ (bib \\ uniqDups))
-  where uniqDups = nub $ map fst $ dups
-        dups = [(e1,e2) | (es,_) <- dupGroups,
-                not (null es),
-                (e1,e2) <- pairs es,
-                not (areRelated e1 e2),
-                dist (findTitle e1) (findTitle e2) <= 10
-                        ]
+  where dups = [(e1,e2) |
+                (es,_) <- dupGroups,
+                (e1,e2) <- pairs $ es,
+                not (areRelated e1 e2), -- no "see also" field
+                dist (findTitle e1) (findTitle e2) <= 10 -- edit distance
+               ]
         dupGroups = [(es,shared) | (es,shared) <- common,
                      -- a sufficently long substring is shared
                      maximum (map length shared) >= threshold (minimum (map (length . project . findTitle) es))]
@@ -104,7 +103,7 @@ checkAttachments cfg bib = do
 
 mergeIn :: InitFile -> [Entry] -> String -> MaybeIO ()
 mergeIn cfg bib fname = do
-  bib2 <- uncheckedHarmless $ rightOrDie <$> loadBibliographyFrom fname
+  bib2 <- uncheckedHarmless $ (rightOrDie =<< loadBibliographyFrom fname)
   saveBib cfg $ bib2 ++ bib
   return ()
 
@@ -136,7 +135,7 @@ harvest cfg bib = do
 -- Driver
 
 sortBib :: InitFile -> [Entry] -> MaybeIO ()
-sortBib cfg b = saveBib cfg (sortBy (compare `on` \x -> (findFirstAuthor x,findYear x)) b)
+sortBib cfg b = saveBib cfg (sortBy (compare `on` \x -> (findFirstAuthor x,findYear x,findTitle x)) b)
 
 saveBib :: InitFile -> [Entry] -> MaybeIO ()
 saveBib cfg b = safely "Saving bibfile" $ saveBibliography cfg b
@@ -144,7 +143,7 @@ saveBib cfg b = safely "Saving bibfile" $ saveBibliography cfg b
 main :: IO ()
 main = do
   cfg <- loadConfiguration
-  bib <- rightOrDie <$> loadBibliography cfg
+  bib <- rightOrDie =<< loadBibliography cfg
   let options :: ParserInfo (Bool, MaybeIO ())
       options =
         info ((,) <$>
