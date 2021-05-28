@@ -101,10 +101,14 @@ checkAttachments cfg bib = do
 ----------------------------------------------------------------------
 -- Merge another bibtex file
 
+cleanImported :: Entry -> Entry
+cleanImported Entry {..} = Entry {files=[],..}
+
 mergeIn :: InitFile -> [Entry] -> String -> MaybeIO ()
 mergeIn cfg bib fname = do
-  bib2 <- uncheckedHarmless $ (rightOrDie =<< loadBibliographyFrom fname)
-  saveBib cfg $ bib2 ++ bib
+  bib2 <- uncheckedHarmless (rightOrDie =<< loadBibliographyFrom fname)
+  
+  saveBib cfg $ map cleanImported bib2 ++ bib
   return ()
 
 
@@ -148,13 +152,13 @@ main = do
       options =
         info ((,) <$>
                switch (short 'd' <> long "dry-run" <> help "don't perform any change (dry run)") <*>
-               subparser (command "check" (info (pure (checkAttachments cfg bib)) (progDesc "check that attachment exist")) <>
-                          command "rename" (info (pure (renameAttachments cfg bib)) (progDesc "rename/move atachments to where they belong")) <>
-                          command "import" (info (mergeIn cfg bib <$> (argument str (metavar "FILE"))) (progDesc "merge a bibfile into the database")) <>
-                          command "harvest" (info (pure (harvest cfg bib)) (progDesc "harvest attachments (???)")) <>
-                          command "dup" (info (pure (checkDup cfg bib)) (progDesc "check for duplicates")) <>
-                          command "cleanup" (info (pure (saveBib cfg bib)) (progDesc "cleanup keys etc.")) <>
-                          command "sort" (info (pure (sortBib cfg bib)) (progDesc "sort entries by key"))
+               subparser (command "check"   (info (pure (checkAttachments cfg bib))                     (progDesc "check that attachment exist")) <>
+                          command "rename"  (info (pure (renameAttachments cfg bib))                    (progDesc "rename/move atachments to where they belong")) <>
+                          command "import"  (info (mergeIn cfg bib <$> (argument str (metavar "FILE"))) (progDesc "merge a bibfile into the database")) <>
+                          command "harvest" (info (pure (harvest cfg bib))                              (progDesc "harvest attachments (???)")) <>
+                          command "dup"     (info (pure (checkDup cfg bib))                             (progDesc "check for duplicates")) <>
+                          command "cleanup" (info (pure (saveBib cfg bib))                              (progDesc "cleanup keys etc.")) <>
+                          command "sort"    (info (pure (sortBib cfg bib))                              (progDesc "sort entries by key"))
                         )) (fullDesc <> progDesc "batch handling of bib db")
   (dry,cmd) <- execParser options
   run dry cmd

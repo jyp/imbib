@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards, TupleSections  #-}
 
 module TypedBibData where
@@ -88,13 +89,15 @@ pAuthBlock allowSpace =
    munch1 (not . (`elem` ((if allowSpace then "" else "\n\t " ) ++ "{},")))
 
 
--- When searching ignore special characters
+-- | When searching ignore special characters
+project :: String -> String
 project = map toLower . filter isAlphaNum
 
 -- | Does a node contain a string (for search)
 contains :: Entry -> String -> Bool
 contains t needle = or [needle `isInfixOf` project txt | txt <- findTitle t : map snd (authors t)]
 
+matchSearch :: Entry -> String -> Bool
 matchSearch entry pattern =  all (contains entry) (map project $ words pattern)  
 
 findCiteAuth :: Entry -> String
@@ -160,8 +163,10 @@ treeToEntry t@Entry {..} = Entry.Cons{..}
          identifier = findNiceKey t 
 
 fileToTree :: [Char] -> ([Char], [Char])
-fileToTree (':':fs) = (f, t) 
+fileToTree = \case
+  (':':fs) -> (f, t)
     where (f,':':t) = break (== ':') fs
+  other -> (error $ "fileToTree: unexpected: " ++ show (take 10 other))
 
 authorsToTree :: String -> Either String [(String,String)]
 authorsToTree s = case parse (pAuthors <* spaces) longestResultWithLeftover s of
