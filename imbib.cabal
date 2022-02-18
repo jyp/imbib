@@ -4,7 +4,7 @@ category:       Text
 synopsis:       Minimalistic .bib reference manager.
 description:    The package has three parts:
                 .
-                1. A very minimial gui, featuring:
+                1. A very minimial gui [currently not buildable], featuring:
                 .
                  - Drop of bibtex snippets to add a reference to your bibtex.
                  - Drop of pdf to save a fulltext version and a link in the bibtex.
