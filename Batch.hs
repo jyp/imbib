@@ -144,22 +144,29 @@ sortBib cfg b = saveBib cfg (sortBy (compare `on` \x -> (findFirstAuthor x,findY
 saveBib :: InitFile -> [Entry] -> MaybeIO ()
 saveBib cfg b = safely "Saving bibfile" $ saveBibliography cfg b
 
-main :: IO ()
+withInfo :: Parser a -> String -> ParserInfo a
+withInfo opts desc = info (helper <*> opts) $ progDesc desc
+
+parseCommand :: InitFile -> [Entry] -> Parser (MaybeIO ())
+parseCommand cfg bib = subparser $
+    command "check"   ((pure (checkAttachments cfg bib)                     `withInfo` "check that attachment exist")) <>
+    command "rename"  ((pure (renameAttachments cfg bib)                    `withInfo` "rename/move atachments to where they belong")) <>
+    command "import"  ((mergeIn cfg bib <$> (argument str (metavar "FILE")) `withInfo` "merge a bibfile into the database")) <>
+    command "harvest" ((pure (harvest cfg bib)                              `withInfo` "harvest attachments (???)")) <>
+    command "dup"     ((pure (checkDup cfg bib)                             `withInfo` "check for duplicates")) <>
+    command "cleanup" ((pure (saveBib cfg bib)                              `withInfo` "cleanup keys etc.")) <>
+    command "sort"    ((pure (sortBib cfg bib)                              `withInfo` "sort entries by key"))
+
+main          :: IO ()
 main = do
   cfg <- loadConfiguration
   bib <- rightOrDie =<< loadBibliography cfg
   let options :: ParserInfo (Bool, MaybeIO ())
       options =
-        info ((,) <$>
-               switch (short 'd' <> long "dry-run" <> help "don't perform any change (dry run)") <*>
-               subparser (command "check"   (info (pure (checkAttachments cfg bib))                     (progDesc "check that attachment exist")) <>
-                          command "rename"  (info (pure (renameAttachments cfg bib))                    (progDesc "rename/move atachments to where they belong")) <>
-                          command "import"  (info (mergeIn cfg bib <$> (argument str (metavar "FILE"))) (progDesc "merge a bibfile into the database")) <>
-                          command "harvest" (info (pure (harvest cfg bib))                              (progDesc "harvest attachments (???)")) <>
-                          command "dup"     (info (pure (checkDup cfg bib))                             (progDesc "check for duplicates")) <>
-                          command "cleanup" (info (pure (saveBib cfg bib))                              (progDesc "cleanup keys etc.")) <>
-                          command "sort"    (info (pure (sortBib cfg bib))                              (progDesc "sort entries by key"))
-                        )) (fullDesc <> progDesc "batch handling of bib db")
+        (((,) <$> 
+           switch (short 'd' <> long "dry-run" <> help "don't perform any change (dry run)") <*>
+           parseCommand cfg bib
+         ) `withInfo` "batch handling of bib db")
   (dry,cmd) <- execParser options
   run dry cmd
 
