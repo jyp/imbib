@@ -10,11 +10,9 @@ import TypedBibData
 import BibDB
 import BibAttach
 import qualified SuffixTreeCluster as SC
-import Text.Groom
 import MaybeIO
 import Diff
 import Data.Function (on)
-import Control.Monad
 -------------------------------------------------------------------------
 -- CheckDuplicates, method 1
 
@@ -157,7 +155,7 @@ parseCommand cfg bib = subparser $
     command "cleanup" ((pure (saveBib cfg bib)                              `withInfo` "cleanup keys etc.")) <>
     command "sort"    ((pure (sortBib cfg bib)                              `withInfo` "sort entries by key"))
 
-main          :: IO ()
+main :: IO ()
 main = do
   cfg <- loadConfiguration
   bib <- rightOrDie =<< loadBibliography cfg
