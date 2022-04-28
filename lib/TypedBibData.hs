@@ -187,7 +187,7 @@ formatEntry (Entry.Cons entryType bibId items) =
          "\t"++name++" = {"++value++"}"
    in  "@" ++ entryType ++ "{" ++ bibId ++ ",\n" ++
        intercalate ",\n" (map formatItem items) ++
-       "\n},\n\n"
+       "\n}\n\n"
 
 
 e1 `isSeeAlso` e2 = findNiceKey e1 `elem` (map snd (seeAlso e2))
