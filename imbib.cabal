@@ -1,5 +1,5 @@
 name:           imbib
-version:        1.2.4
+version:        1.2.3
 category:       Text
 synopsis:       Minimalistic .bib reference manager.
 description:    The package has three parts:
