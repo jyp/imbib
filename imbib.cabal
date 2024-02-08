@@ -33,15 +33,15 @@ maintainer:     jeanphilippe.bernardy@gmail.com
 Cabal-Version:  >= 1.10
 tested-with:    GHC==6.12.3
 build-type:     Simple
-default-language: Haskell2010
 
 data-files:
   icon.svg
   .imbib
 
 library
+  default-language: Haskell2010
   hs-source-dirs: lib
-  extensions: TypeSynonymInstances, RecordWildCards, FlexibleInstances
+  default-extensions: TypeSynonymInstances, RecordWildCards, FlexibleInstances
   exposed-modules:
     Config
     TypedBibData
@@ -50,19 +50,19 @@ library
     SuffixTreeCluster
   other-modules:
     Paths_imbib
-  build-depends: base>=4
-  build-depends: bibtex>=0.1
-  build-depends: mtl>=2.1
-  build-depends: ConfigFile>=1
-  build-depends: directory>=1.2
-  build-depends: process>=1.1
-  build-depends: filepath>=1.3
-  build-depends: parsek
-  build-depends: parsec>=3.1
-  build-depends: containers >= 0.4
-  build-depends: split>=0.1
-  build-depends: text>=0.11
-  build-depends: bytestring>=0.9
+  build-depends: base>=4&& < 666
+  build-depends: bibtex>=0.1&& < 666
+  build-depends: mtl>=2.1&& < 666
+  build-depends: ConfigFile>=1&& < 666
+  build-depends: directory>=1.2&& < 666
+  build-depends: process>=1.1&& < 666
+  build-depends: filepath>=1.3&& < 666
+  build-depends: parsek>0 && < 666
+  build-depends: parsec>=3.1&& < 666
+  build-depends: containers >= 0.4&& < 666
+  build-depends: split>=0.1&& < 666
+  build-depends: text>=0.11&& < 666
+  build-depends: bytestring>=0.9&& < 666
 
 -- executable imbib
 --   main-is: Imbibed.hs
@@ -81,16 +81,17 @@ library
 --   -- build-depends: hinotify >=0.3 && <1
 
 executable imbibatch
+  default-language: Haskell2010
   main-is: Batch.hs
-  extensions: TypeSynonymInstances, RecordWildCards, FlexibleInstances, RankNTypes, GADTs
+  default-extensions: TypeSynonymInstances, RecordWildCards, FlexibleInstances, RankNTypes, GADTs
   build-depends: imbib
-  build-depends: base>=4
-  build-depends: directory>=1.2
-  build-depends: containers >=0.4
-  build-depends: filepath>=1.3
-  build-depends: text>=0.11
-  build-depends: optparse-applicative>=0.15
-  build-depends: groom
+  build-depends: base>=4&& < 666
+  build-depends: directory>=1.2&& < 666
+  build-depends: containers >=0.4&& < 666
+  build-depends: filepath>=1.3&& < 666
+  build-depends: text>=0.11&& < 666
+  build-depends: optparse-applicative>=0.15&& < 666
+  build-depends: groom>0&& < 666
 
   other-modules:
      MaybeIO
