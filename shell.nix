@@ -1,6 +1,6 @@
 { nixpkgs ? import <nixpkgs> {} }:
 let
-  nixpkgs_source = fetchTarball https://github.com/NixOS/nixpkgs/archive/nixos-21.11.tar.gz;
+  nixpkgs_source = fetchTarball https://github.com/NixOS/nixpkgs/archive/nixos-23.11.tar.gz;
 
    overlays = [];
    config = {
