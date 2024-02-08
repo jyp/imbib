@@ -40,7 +40,7 @@ run dry mio = run' mio
 
 instance Monad MaybeIO where
     (>>=) = (:>>=)
-    return = Return
+    return = pure
 
 uncheckedHarmless :: IO a -> MaybeIO a
 uncheckedHarmless = Safe
