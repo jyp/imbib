@@ -1,0 +1,2 @@
+library = %(home)s/path-to-bib-file.bib
+editor = /usr/bin/emacsclient
